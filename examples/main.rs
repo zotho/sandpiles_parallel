@@ -8,8 +8,8 @@ const COLORS: [Color; 23] = [
     MAGENTA,
 ];
 
-const WIDTH: usize = 1000;
-const HEIGHT: usize = 1000;
+const WIDTH: usize = 500;
+const HEIGHT: usize = 500;
 
 fn window_conf() -> Conf {
     Conf {
@@ -29,8 +29,8 @@ async fn main() {
     let mut sh;
 
     let mut field: Field<u32> = Field::new(WIDTH, HEIGHT);
-    let initial = 10000;
-    let n_updates = 100;
+    let initial = 100000;
+    let n_updates = 1000;
     field[(WIDTH / 2, HEIGHT / 2)] = initial;
 
     let mut last_x = 0;
@@ -79,7 +79,7 @@ async fn main() {
         );
 
         for _ in 0..n_updates {
-            field.update_iter_branchless();
+            field.update_parallel();
         }
 
         for y in 0..field.height {

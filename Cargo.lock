@@ -653,6 +653,7 @@ dependencies = [
  "criterion",
  "macroquad",
  "rand",
+ "rayon",
 ]
 
 [[package]]

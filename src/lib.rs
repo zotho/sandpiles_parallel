@@ -1,3 +1,8 @@
+use rayon::slice::{ParallelSlice, ParallelSliceMut};
+use rayon::iter::{
+    IndexedParallelIterator, ParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator
+};
+
 mod get;
 
 use get::{Get, GetMut};
@@ -56,6 +61,91 @@ impl<T: Default + Clone> Field<T> {
 }
 
 impl Field<u32> {
+    pub fn update_parallel(&mut self) {
+        #[cfg(feature = "elapsed")]
+        let t1 = std::time::Instant::now();
+
+        std::mem::swap(&mut self.data, &mut self.old_data);
+        self.data.clone_from(&self.old_data);
+
+        #[cfg(feature = "elapsed")]
+        let e1 = t1.elapsed();
+        #[cfg(feature = "elapsed")]
+        let t2 = std::time::Instant::now();
+
+        self.old_data
+            .par_chunks(self.width)
+            .zip(self.data.par_chunks_mut(self.width))
+            .for_each(|(old_line, line)| {
+                old_line
+                    .iter()
+                    .skip(1)
+                    .zip(line.iter_mut())
+                    .for_each(|(&old_cell, prev_cell)| {
+                        *prev_cell += ((old_cell >= 4) as u32) * 1
+                    });
+                old_line
+                    .iter()
+                    .zip(line.iter_mut().skip(1))
+                    .for_each(|(&old_cell, next_cell)| {
+                        *next_cell += ((old_cell >= 4) as u32) * 1
+                    });
+            });
+
+        #[cfg(feature = "elapsed")]
+        let e2 = t2.elapsed();
+        #[cfg(feature = "elapsed")]
+        let t3 = std::time::Instant::now();
+
+        self.old_data
+            .par_chunks(self.width)
+            .skip(1)
+            .zip(self.data.par_chunks_mut(self.width))
+            .for_each(|(old_line, prev_line)| {
+                old_line
+                    .iter()
+                    .zip(prev_line.iter_mut())
+                    .for_each(|(&old_cell, up_cell)| {
+                        *up_cell += ((old_cell >= 4) as u32) * 1
+                    });
+            });
+
+        #[cfg(feature = "elapsed")]
+        let e3 = t3.elapsed();
+        #[cfg(feature = "elapsed")]
+        let t4 = std::time::Instant::now();
+
+        self.old_data
+            .par_chunks(self.width)
+            .zip(self.data.par_chunks_mut(self.width).skip(1))
+            .for_each(|(old_line, next_line)| {
+                old_line
+                    .iter()
+                    .zip(next_line.iter_mut())
+                    .for_each(|(&old_cell, down_cell)| {
+                        *down_cell += ((old_cell >= 4) as u32) * 1
+                    });
+            });
+
+        #[cfg(feature = "elapsed")]
+        let e4 = t4.elapsed();
+        #[cfg(feature = "elapsed")]
+        let t5 = std::time::Instant::now();
+
+        self.old_data
+            .par_iter()
+            .zip(self.data.par_iter_mut())
+            .for_each(|(&old_cell, cell)| {
+                *cell -= ((old_cell >= 4) as u32) * 4
+            });
+
+        #[cfg(feature = "elapsed")]
+        let e5 = t5.elapsed();
+
+        #[cfg(feature = "elapsed")]
+        println!("{}\n{}\n{}\n{}\n{}\n", e1.as_secs_f64(), e2.as_secs_f64(), e3.as_secs_f64(), e4.as_secs_f64(), e5.as_secs_f64());
+    }
+
     pub fn update_iter_branchless(&mut self) {
         std::mem::swap(&mut self.data, &mut self.old_data);
         self.data.clone_from(&self.old_data);
@@ -357,13 +447,16 @@ mod test {
             .for_each(|cell| *cell = rng.gen_range(0..=400));
         let mut field_2 = field.clone();
         let mut field_3 = field.clone();
+        let mut field_4 = field.clone();
         for _ in 0..100 {
             field.slow_update();
             field_2.update_iter();
             field_3.update_iter_branchless();
+            field_4.update_parallel();
         }
         assert_eq!(field, field_2);
         assert_eq!(field_2, field_3);
+        assert_eq!(field_2, field_4);
     }
 
     // #[test]
