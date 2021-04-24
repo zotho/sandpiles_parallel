@@ -1,9 +1,6 @@
 use macroquad::prelude::*;
 
-mod field;
-use field::Field;
-
-mod get;
+use sandpiles_parallel::Field;
 
 const COLORS: [Color; 23] = [
     RED, ORANGE, YELLOW, GOLD, GREEN, BLUE, DARKBLUE, PURPLE, VIOLET, PINK, MAROON, LIME,
@@ -14,11 +11,10 @@ const COLORS: [Color; 23] = [
 const WIDTH: usize = 1000;
 const HEIGHT: usize = 1000;
 
-
 fn window_conf() -> Conf {
     Conf {
         window_title: "Cellular".to_owned(),
-        fullscreen: false,
+        fullscreen: true,
         window_width: WIDTH as i32,
         window_height: HEIGHT as i32,
         sample_count: 64,
@@ -28,15 +24,14 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let size = 2.0;
+    let size = 10.0;
     let mut sw;
     let mut sh;
 
     let mut field: Field<u32> = Field::new(WIDTH, HEIGHT);
-    let initial = 1000000;
-    let n_updates = 10;
+    let initial = 10000;
+    let n_updates = 100;
     field[(WIDTH / 2, HEIGHT / 2)] = initial;
-    field.fill_affected_indexes();
 
     let mut last_x = 0;
     let mut last_y = 0;
@@ -49,9 +44,9 @@ async fn main() {
         let y_offset = sh / 2.0 - field.height as f32 * size / 2.0;
         let centered = |x, y| (x * size + x_offset, y * size + y_offset);
         let from_centered = |x, y| ((x - x_offset) / size, (y - y_offset) / size);
-        
+
         let (mx, my) = mouse_position();
-        
+
         #[cfg(not(target_arch = "wasm32"))]
         if is_key_pressed(KeyCode::Q) | is_key_pressed(KeyCode::Escape) {
             break;
@@ -84,7 +79,7 @@ async fn main() {
         );
 
         for _ in 0..n_updates {
-            field.wrong_slow_update();
+            field.update_iter();
         }
 
         for y in 0..field.height {
