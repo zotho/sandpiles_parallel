@@ -56,6 +56,62 @@ impl<T: Default + Clone> Field<T> {
 }
 
 impl Field<u32> {
+    pub fn update_iter_branchless(&mut self) {
+        std::mem::swap(&mut self.data, &mut self.old_data);
+        self.data.clone_from(&self.old_data);
+
+        self.old_data
+            .chunks(self.width)
+            .zip(self.data.chunks_mut(self.width))
+            .for_each(|(old_line, line)| {
+                old_line
+                    .iter()
+                    .skip(1)
+                    .zip(line.iter_mut())
+                    .for_each(|(&old_cell, prev_cell)| {
+                        *prev_cell += ((old_cell >= 4) as u32) * 1
+                    });
+                old_line
+                    .iter()
+                    .zip(line.iter_mut().skip(1))
+                    .for_each(|(&old_cell, next_cell)| {
+                        *next_cell += ((old_cell >= 4) as u32) * 1
+                    });
+            });
+
+        self.old_data
+            .chunks(self.width)
+            .skip(1)
+            .zip(self.data.chunks_mut(self.width))
+            .for_each(|(old_line, prev_line)| {
+                old_line
+                    .iter()
+                    .zip(prev_line.iter_mut())
+                    .for_each(|(&old_cell, up_cell)| {
+                        *up_cell += ((old_cell >= 4) as u32) * 1
+                    });
+            });
+
+        self.old_data
+            .chunks(self.width)
+            .zip(self.data.chunks_mut(self.width).skip(1))
+            .for_each(|(old_line, next_line)| {
+                old_line
+                    .iter()
+                    .zip(next_line.iter_mut())
+                    .for_each(|(&old_cell, down_cell)| {
+                        *down_cell += ((old_cell >= 4) as u32) * 1
+                    });
+            });
+
+        self.old_data
+            .iter()
+            .zip(self.data.iter_mut())
+            .for_each(|(&old_cell, cell)| {
+                *cell -= ((old_cell >= 4) as u32) * 4
+            });
+    }
+
     pub fn update_iter(&mut self) {
         std::mem::swap(&mut self.data, &mut self.old_data);
         self.data.clone_from(&self.old_data);
@@ -300,11 +356,14 @@ mod test {
             .iter_mut()
             .for_each(|cell| *cell = rng.gen_range(0..=400));
         let mut field_2 = field.clone();
+        let mut field_3 = field.clone();
         for _ in 0..100 {
             field.slow_update();
             field_2.update_iter();
+            field_3.update_iter_branchless();
         }
         assert_eq!(field, field_2);
+        assert_eq!(field_2, field_3);
     }
 
     // #[test]

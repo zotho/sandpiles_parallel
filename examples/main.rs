@@ -79,7 +79,7 @@ async fn main() {
         );
 
         for _ in 0..n_updates {
-            field.update_iter();
+            field.update_iter_branchless();
         }
 
         for y in 0..field.height {
